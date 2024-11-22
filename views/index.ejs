@@ -34,8 +34,9 @@
         let localstream = document.querySelector('#localstream');
         let remotestream = document.querySelector('#remotestream');
         let peerConnection;
+        let roomname;
         const socket = io();
-        console.log(socket);
+  
 
         const setLocalStream = async()=>{
             try{
@@ -45,11 +46,19 @@
                 console.error("failed to get media devices");
             }
         }
-        setLocalStream();   
+
+        socket.emit('joinroom');
+
+        socket.on("joined", function (roomname) {
+                room = roomname;
+                console.log("connection established");
+            })
+
+        
 
 
-        let waitingusers = [];
-        let rooms = [];
+        
+
 
 
 
