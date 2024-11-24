@@ -18,19 +18,24 @@
                 <video src="w-full h-full object-cover " id="localVideo" autoplay muted></video>
             </div>
         </div>
+
         <div class="message-box h-full w-full bg-zinc-400 flex flex-col text-2xl relative">
             <h1 class="bg-zinc-300">Hello</h1>
-            <form class="absolute bottom-5 w-[70%] bg-red-300">
+            <button class="bg-blue-500 px-2 py-1 rounded items-start text-white hover:bg-blue-400">skip</button>
+            <form class="absolute bottom-5 w-[70%] bg-red-300 flex-end">
                 <input type="text">
                 <input type="submit" name="" id="">
             </form>
-
+           
         </div>
     </div>
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"
         integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+"
         crossorigin="anonymous"></script>
     <script>
+
+        const form = document.querySelector(form);
+        
         
         let roomname;
         const socket = io();
