@@ -50,7 +50,9 @@ io.on("connection", (socket) => {
   // Handle user disconnect
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id} \n`); //
-    console.log(`Total users connected: ${io.engine.clientsCount}. Total rooms: ${rooms.length}`); 
+    console.log(
+      `Total users connected: ${io.engine.clientsCount}. Total rooms: ${rooms.length}`
+    );
     // Remove from waitingusers if applicable
     let waitingIndex = waitingusers.findIndex(
       (waitingUser) => waitingUser.id === socket.id
@@ -89,7 +91,9 @@ io.on("connection", (socket) => {
 
           // Notify users of the new room
           io.to(newRoomname).emit("joined", newRoomname);
-          console.log(`New room created: ${newRoomname}. Total rooms: ${rooms.length}`); // Log total rooms after creation
+          console.log(
+            `New room created: ${newRoomname}. Total rooms: ${rooms.length}`
+          ); // Log total rooms after creation
         } else {
           // Add remaining user to the waiting list
           waitingusers.push(remainingUserSocket);
@@ -107,7 +111,6 @@ io.on("connection", (socket) => {
 });
 
 // Render the homepage
-
 
 // Start the server
 server.listen(3000, () => {
