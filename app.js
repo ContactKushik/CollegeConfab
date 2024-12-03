@@ -41,6 +41,8 @@ io.on("connection", (socket) => {
       console.log(
         `Room created: ${roomname}. Total rooms: ${Object.keys(rooms).length}`
       );
+      console.log(`Total users connected: ${io.engine.clientsCount}.`);
+      console.log(`Total rooms: ${Object.keys(rooms).length}`);
     } else {
       waitingusers.push(socket);
     }
@@ -129,11 +131,14 @@ io.on("connection", (socket) => {
       }
     }
     console.log(`Skip handled. Total rooms: ${Object.keys(rooms).length}`);
+      console.log(`Total users connected: ${io.engine.clientsCount}.`);
+      console.log(`Total rooms: ${Object.keys(rooms).length}`);
   };
 
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
-
+      console.log(`Total users connected: ${io.engine.clientsCount}.`);
+      console.log(`Total rooms: ${Object.keys(rooms).length}`);
     // Remove from waiting list
     waitingusers = waitingusers.filter((user) => user.id !== socket.id);
 
