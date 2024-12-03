@@ -21,6 +21,7 @@
 
         <div class="message-box h-full w-full bg-zinc-400 flex flex-col text-2xl relative">
             <h1 class="bg-zinc-300 p-4">Chat</h1>
+            <button class="bg-blue-500" id="skip">Skip</button>
             <div class="messages flex-grow overflow-auto p-4" id="messages"></div>
             <form id="chatForm" class="absolute bottom-5 w-[70%] bg-red-300 flex">
                 <input type="text" id="messageInput" class="flex-grow px-2 py-1 border rounded"
@@ -175,6 +176,26 @@
             messageElement.classList.add("p-2", "my-1", sender === "You" ? "text-right" : "text-left");
             messagesDiv.appendChild(messageElement);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        };
+
+        document.querySelector("#skip").addEventListener("click", () => {
+            socket.emit("skip");
+        });
+
+        // Handle the partner disconnection (when skip or leave happens)
+        socket.on("partnerLeft", () => {
+            console.log("Partner has left the room.");
+            stopRemoteStream();  // Stop the remote video feed
+            // alert("Your partner has left. You will be matched with another user.");
+        });
+
+        const stopRemoteStream = () => {
+            const remoteVideo = document.querySelector("#remoteVideo");
+            const tracks = remoteVideo.srcObject?.getTracks();
+            if (tracks) {
+                tracks.forEach(track => track.stop());
+            }
+            remoteVideo.srcObject = null;  // Clear the remote video
         };
     </script>
 </body>

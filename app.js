@@ -17,102 +17,152 @@ app.get("/", (req, res) => {
 });
 
 let waitingusers = [];
-let rooms = []; // Store rooms as an array of objects
+let rooms = {}; // Use an object to store rooms
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
   console.log(`Total users connected: ${io.engine.clientsCount}.`);
-  console.log(`Total rooms: ${rooms.length}`);
-  // Handle user joining a room
+  console.log(`Total rooms: ${Object.keys(rooms).length}`);
+
   socket.on("joinroom", () => {
     if (waitingusers.length > 0) {
       let partner = waitingusers.shift(); // Get the first waiting user
       const roomname = `${socket.id}-${partner.id}`;
 
-      // Create a room
-      rooms.push({
+      rooms[roomname] = {
         roomname: roomname,
         users: [socket.id, partner.id],
-      });
+      };
 
-      // Join both users to the room
       socket.join(roomname);
       partner.join(roomname);
 
-      // Notify users of the room
       io.to(roomname).emit("joined", roomname);
-      console.log(`Room created: ${roomname}. Total rooms: ${rooms.length}`); // Log total rooms after creation
+      console.log(
+        `Room created: ${roomname}. Total rooms: ${Object.keys(rooms).length}`
+      );
     } else {
       waitingusers.push(socket);
     }
   });
 
-  // Handle user disconnect
-  socket.on("disconnect", () => {
-    console.log(`User disconnected: ${socket.id} \n`); //
-    console.log(
-      `Total users connected: ${io.engine.clientsCount}. Total rooms: ${rooms.length}`
-    );
-    // Remove from waitingusers if applicable
-    let waitingIndex = waitingusers.findIndex(
-      (waitingUser) => waitingUser.id === socket.id
-    );
-    if (waitingIndex !== -1) {
-      waitingusers.splice(waitingIndex, 1);
-      console.log(`User ${socket.id} removed from waiting list`);
-      return; // Stop if the user was only in the waiting list
+  socket.on("skip", () => {
+    handleSkip(socket);
+  });
+
+  const handleSkip = (skippingSocket) => {
+    // Find and remove the room associated with the skipping user
+    let roomname = null;
+    for (let key in rooms) {
+      if (rooms[key].users.includes(skippingSocket.id)) {
+        roomname = key;
+        break;
+      }
     }
 
-    // Find the room the user was part of
-    let roomIndex = rooms.findIndex((room) => room.users.includes(socket.id));
-    if (roomIndex !== -1) {
-      const room = rooms[roomIndex];
-      const remainingUserID = room.users.find((id) => id !== socket.id);
+    if (roomname) {
+      const room = rooms[roomname];
+      const partnerID = room.users.find((id) => id !== skippingSocket.id);
+      const partnerSocket = io.sockets.sockets.get(partnerID);
 
-      // Remove the room
-      rooms.splice(roomIndex, 1);
+      // Notify both users about the skip
+      io.to(roomname).emit("skipNotice");
 
-      // Handle the remaining user
-      const remainingUserSocket = io.sockets.sockets.get(remainingUserID);
-      if (remainingUserSocket && remainingUserSocket.connected) {
+      // Leave the current room for both users
+      skippingSocket.leave(roomname);
+      if (partnerSocket) {
+        partnerSocket.leave(roomname);
+      }
+
+      // Remove the room from rooms object
+      delete rooms[roomname];
+
+      // Make sure the partner is properly removed from the room and waiting list
+      if (partnerSocket) {
+        partnerSocket.emit("partnerLeft");
+      }
+
+      // Handle reconnecting or re-matching
+      if (waitingusers.length > 0) {
+        // Connect skipping user with another waiting user
+        const newPartner = waitingusers.shift();
+        const newRoomname = `${skippingSocket.id}-${newPartner.id}`;
+
+        rooms[newRoomname] = {
+          roomname: newRoomname,
+          users: [skippingSocket.id, newPartner.id],
+        };
+
+        skippingSocket.join(newRoomname);
+        newPartner.join(newRoomname);
+
+        io.to(newRoomname).emit("joined", newRoomname);
+        console.log(`New room created: ${newRoomname}.`);
+      } else {
+        // Add skipping user to waitingusers if no partner is found
+        waitingusers.push(skippingSocket);
+      }
+
+      // Handle remaining partner
+      if (partnerSocket) {
         if (waitingusers.length > 0) {
-          let newPartner = waitingusers.shift();
-          const newRoomname = `${remainingUserID}-${newPartner.id}`;
+          const newPartner = waitingusers.shift();
+          const newRoomname = `${partnerID}-${newPartner.id}`;
 
-          // Create a new room
-          rooms.push({
+          rooms[newRoomname] = {
             roomname: newRoomname,
-            users: [remainingUserID, newPartner.id],
-          });
+            users: [partnerID, newPartner.id],
+          };
 
-          // Join both users to the new room
-          remainingUserSocket.join(newRoomname);
+          partnerSocket.join(newRoomname);
           newPartner.join(newRoomname);
 
-          // Notify users of the new room
           io.to(newRoomname).emit("joined", newRoomname);
-          console.log(
-            `New room created: ${newRoomname}. Total rooms: ${rooms.length}`
-          ); // Log total rooms after creation
         } else {
-          // Add remaining user to the waiting list
-          waitingusers.push(remainingUserSocket);
-          console.log(`User ${remainingUserID} added to waiting list`);
-          console.log(`Total rooms: ${rooms.length}`);
+          waitingusers.push(partnerSocket);
         }
+      }
+    } else {
+      // If the skipping user was not in a room, add them to the waiting list
+      if (!waitingusers.includes(skippingSocket)) {
+        waitingusers.push(skippingSocket);
+      }
+    }
+    console.log(`Skip handled. Total rooms: ${Object.keys(rooms).length}`);
+  };
+
+  socket.on("disconnect", () => {
+    console.log(`User disconnected: ${socket.id}`);
+
+    // Remove from waiting list
+    waitingusers = waitingusers.filter((user) => user.id !== socket.id);
+
+    // Remove from rooms
+    let roomname = null;
+    for (let key in rooms) {
+      if (rooms[key].users.includes(socket.id)) {
+        roomname = key;
+        break;
+      }
+    }
+
+    if (roomname) {
+      const room = rooms[roomname];
+      delete rooms[roomname];
+
+      const remainingUserID = room.users.find((id) => id !== socket.id);
+      const remainingUserSocket = io.sockets.sockets.get(remainingUserID);
+      if (remainingUserSocket) {
+        waitingusers.push(remainingUserSocket);
       }
     }
   });
 
   socket.on("signalingMessage", function (data) {
-    // console.log(data.room, data.message);
     socket.broadcast.to(data.room).emit("signalingMessage", data.message);
   });
 });
 
-// Render the homepage
-
-// Start the server
 server.listen(3000, () => {
   console.log("Server is running on port 3000: http://localhost:3000");
 });
